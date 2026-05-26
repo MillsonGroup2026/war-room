@@ -12,6 +12,8 @@ export async function GET(request: Request) {
     if (season === "career") {
       // Career all-time leaders — omit season, add statType=career
       url = `https://statsapi.mlb.com/api/v1/stats/leaders?leaderCategories=${categories}&sportId=1&limit=${limit}&statGroup=${group}&statType=career`;
+    } else if (group === "fielding") {
+      url = `https://statsapi.mlb.com/api/v1/stats/leaders?leaderCategories=${categories}&season=${season}&sportId=1&limit=${limit}&statGroup=fielding`;
     } else {
       url = `https://statsapi.mlb.com/api/v1/stats/leaders?leaderCategories=${categories}&season=${season}&sportId=1&limit=${limit}&statGroup=${group}`;
     }

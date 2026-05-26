@@ -56,7 +56,7 @@ export const BALLPARKS: Ballpark[] = [
     parkFactors: { runs: 99, homeRuns: 97, batting: 99 },
     funFact: "Features a 230-foot wide rock formation with waterfalls and a geyser that erupts on every Angels home run",
     tdfDescription: "Iconic rock formation waterfall display",
-    defaultScores: { location: 7, fieldDynamics: 6.5, parkStructure: 6, atmosphere: 6.5, historicIntegration: 7, foodMerch: 6.5, overallExperience: 6.5, tdfBonus: 0.5 },
+    defaultScores: { location: 4.5, fieldDynamics: 5.5, parkStructure: 5, atmosphere: 5.5, historicIntegration: 5.5, foodMerch: 6, overallExperience: 5, tdfBonus: 0.5 },
     imageUrl: "https://upload.wikimedia.org/wikipedia/commons/thumb/4/4f/Angel_Stadium_2019.jpg/1200px-Angel_Stadium_2019.jpg",
   },
   {
@@ -74,7 +74,7 @@ export const BALLPARKS: Ballpark[] = [
     parkFactors: { runs: 100, homeRuns: 102, batting: 101 },
     funFact: "Has a swimming pool and hot tub in right field that fans can rent for groups",
     tdfDescription: "Retractable roof + pool & hot tub in right field",
-    defaultScores: { location: 6, fieldDynamics: 7, parkStructure: 7.5, atmosphere: 7, historicIntegration: 4, foodMerch: 7, overallExperience: 7.5, tdfBonus: 1.5 },
+    defaultScores: { location: 5.5, fieldDynamics: 6.5, parkStructure: 7, atmosphere: 6, historicIntegration: 4, foodMerch: 7, overallExperience: 6.5, tdfBonus: 1.5 },
     imageUrl: "https://upload.wikimedia.org/wikipedia/commons/thumb/0/08/Chase_Field_-_panoramio_%281%29.jpg/1200px-Chase_Field_-_panoramio_%281%29.jpg",
   },
   {
@@ -146,7 +146,7 @@ export const BALLPARKS: Ballpark[] = [
     parkFactors: { runs: 104, homeRuns: 110, batting: 104 },
     funFact: "Considered one of the most hitter-friendly parks in baseball. Fireworks go off in the outfield on home runs.",
     tdfDescription: "Ohio River views + Reds Hall of Fame museum on-site",
-    defaultScores: { location: 7.5, fieldDynamics: 7, parkStructure: 7, atmosphere: 7.5, historicIntegration: 6.5, foodMerch: 7, overallExperience: 7.5, tdfBonus: 0.5 },
+    defaultScores: { location: 7, fieldDynamics: 6.5, parkStructure: 6.5, atmosphere: 7, historicIntegration: 6, foodMerch: 6.5, overallExperience: 6.5, tdfBonus: 0.5 },
     imageUrl: "https://upload.wikimedia.org/wikipedia/commons/thumb/3/39/Great_American_Ball_Park_2010.jpg/1200px-Great_American_Ball_Park_2010.jpg",
   },
   {
@@ -164,7 +164,7 @@ export const BALLPARKS: Ballpark[] = [
     parkFactors: { runs: 97, homeRuns: 93, batting: 97 },
     funFact: "One of the first modern retro-style parks. Featured in the movie Major League.",
     tdfDescription: "Downtown Cleveland skyline backdrop",
-    defaultScores: { location: 7.5, fieldDynamics: 7.5, parkStructure: 8, atmosphere: 7.5, historicIntegration: 7, foodMerch: 7.5, overallExperience: 7.5, tdfBonus: 0.5 },
+    defaultScores: { location: 7, fieldDynamics: 7, parkStructure: 7.5, atmosphere: 7, historicIntegration: 6.5, foodMerch: 7, overallExperience: 7, tdfBonus: 0.5 },
     imageUrl: "https://upload.wikimedia.org/wikipedia/commons/thumb/9/98/Progressive_Field_-_Cleveland%2C_Ohio.jpg/1200px-Progressive_Field_-_Cleveland%2C_Ohio.jpg",
   },
   {
@@ -272,7 +272,7 @@ export const BALLPARKS: Ballpark[] = [
     parkFactors: { runs: 97, homeRuns: 94, batting: 97 },
     funFact: "Racing Presidents — Teddy Roosevelt didn't win his first race until 2012, ending a 525-game losing streak.",
     tdfDescription: "Capitol Dome view + Teddy Roosevelt Racing Presidents tradition",
-    defaultScores: { location: 8, fieldDynamics: 7.5, parkStructure: 7.5, atmosphere: 7, historicIntegration: 5.5, foodMerch: 7.5, overallExperience: 7.5, tdfBonus: 0.5 },
+    defaultScores: { location: 7.5, fieldDynamics: 7, parkStructure: 7, atmosphere: 6, historicIntegration: 5.5, foodMerch: 7, overallExperience: 6.5, tdfBonus: 0.5 },
     imageUrl: "https://upload.wikimedia.org/wikipedia/commons/thumb/6/62/Nationals_Park_panorama_%2842213671984%29.jpg/1200px-Nationals_Park_panorama_%2842213671984%29.jpg",
   },
   {
@@ -434,7 +434,7 @@ export const BALLPARKS: Ballpark[] = [
     parkFactors: { runs: 99, homeRuns: 101, batting: 99 },
     funFact: "Newest stadium in MLB (2020). Fully air-conditioned — built specifically to handle Texas heat. Hosted the 2020 World Series bubble.",
     tdfDescription: "Newest park (2020) — fully climate-controlled retractable roof design",
-    defaultScores: { location: 6.5, fieldDynamics: 7, parkStructure: 8.5, atmosphere: 7.5, historicIntegration: 3, foodMerch: 8, overallExperience: 7.5, tdfBonus: 0 },
+    defaultScores: { location: 5.5, fieldDynamics: 5.5, parkStructure: 8, atmosphere: 6, historicIntegration: 3, foodMerch: 7.5, overallExperience: 5.5, tdfBonus: 0 },
     imageUrl: "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d3/Globe_Life_Field_2020.jpg/1200px-Globe_Life_Field_2020.jpg",
   },
   {
@@ -452,7 +452,7 @@ export const BALLPARKS: Ballpark[] = [
     parkFactors: { runs: 101, homeRuns: 104, batting: 101 },
     funFact: "Only MLB stadium outside the United States. The CN Tower looms outside the park — visible from the field.",
     tdfDescription: "Only MLB park in Canada + CN Tower backdrop",
-    defaultScores: { location: 7.5, fieldDynamics: 6.5, parkStructure: 6, atmosphere: 7.5, historicIntegration: 5.5, foodMerch: 7, overallExperience: 7, tdfBonus: 1 },
+    defaultScores: { location: 6.5, fieldDynamics: 4, parkStructure: 4.5, atmosphere: 5.5, historicIntegration: 5, foodMerch: 6, overallExperience: 4.5, tdfBonus: 1 },
     imageUrl: "https://upload.wikimedia.org/wikipedia/commons/thumb/4/49/Rogers_Centre_2017.jpg/1200px-Rogers_Centre_2017.jpg",
   },
   {
@@ -524,7 +524,7 @@ export const BALLPARKS: Ballpark[] = [
     parkFactors: { runs: 101, homeRuns: 103, batting: 101 },
     funFact: "Features a classic exploding scoreboard in left-center, honoring the original Comiskey Park tradition from 1960.",
     tdfDescription: "Exploding pinwheel scoreboard honoring the 1960 Comiskey Park original",
-    defaultScores: { location: 6, fieldDynamics: 7, parkStructure: 6.5, atmosphere: 6, historicIntegration: 6, foodMerch: 6.5, overallExperience: 6, tdfBonus: 0.5 },
+    defaultScores: { location: 5, fieldDynamics: 6.5, parkStructure: 5.5, atmosphere: 5, historicIntegration: 5, foodMerch: 6, overallExperience: 5, tdfBonus: 0.5 },
     imageUrl: "https://upload.wikimedia.org/wikipedia/commons/thumb/6/6e/Guaranteed_Rate_Field.jpg/1200px-Guaranteed_Rate_Field.jpg",
   },
   {
@@ -542,7 +542,7 @@ export const BALLPARKS: Ballpark[] = [
     parkFactors: { runs: 95, homeRuns: 90, batting: 95 },
     funFact: "Features an aquarium behind home plate with live fish visible through the glass. Marlins home run sculpture — a massive kinetic art installation in left field.",
     tdfDescription: "Live fish aquarium behind home plate + outrageous home run sculpture",
-    defaultScores: { location: 7, fieldDynamics: 7, parkStructure: 8, atmosphere: 6, historicIntegration: 3, foodMerch: 7.5, overallExperience: 7, tdfBonus: 1.5 },
+    defaultScores: { location: 6.5, fieldDynamics: 6.5, parkStructure: 7.5, atmosphere: 4.5, historicIntegration: 3, foodMerch: 7, overallExperience: 5.5, tdfBonus: 1.5 },
     imageUrl: "https://upload.wikimedia.org/wikipedia/commons/thumb/1/1c/Marlins_Park_2016.jpg/1200px-Marlins_Park_2016.jpg",
   },
   {

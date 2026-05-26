@@ -14,7 +14,8 @@ export async function GET(
       fetch(`https://statsapi.mlb.com/api/v1/people/${personId}?hydrate=currentTeam`, { next: { revalidate: 3600 } }),
       fetch(`https://statsapi.mlb.com/api/v1/people/${personId}/stats?stats=season&season=${season}&group=${group}`, { next: { revalidate: 1800 } }),
       fetch(`https://statsapi.mlb.com/api/v1/people/${personId}/stats?stats=career&group=${group}`, { next: { revalidate: 3600 } }),
-      fetch(`https://statsapi.mlb.com/api/v1/people/${personId}/stats?stats=statSplits&season=${season}&group=${group}&sitCodes=vl,vr`, { next: { revalidate: 1800 } }),
+      // Fetch all available splits (vs L, vs R, RISP, 2-out, high leverage, etc.)
+      fetch(`https://statsapi.mlb.com/api/v1/people/${personId}/stats?stats=statSplits&season=${season}&group=${group}`, { next: { revalidate: 1800 } }),
     ]);
 
     const person = personRes.status === "fulfilled" ? await personRes.value.json() : null;
