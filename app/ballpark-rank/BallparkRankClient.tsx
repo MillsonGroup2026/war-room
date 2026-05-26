@@ -248,6 +248,7 @@ function BallparkDetailModal({
 }
 
 type SortMode = "score" | "name" | "parkFactor" | "capacity" | "opened";
+type ViewMode = "grid" | "table";
 
 export default function BallparkRankClient({ ballparks }: { ballparks: Ballpark[] }) {
   const [userRatings, setUserRatings] = useState<Record<string, BallparkCriteria & { visited: boolean }>>({});
@@ -255,6 +256,7 @@ export default function BallparkRankClient({ ballparks }: { ballparks: Ballpark[
   const [sortMode, setSortMode] = useState<SortMode>("score");
   const [search, setSearch] = useState("");
   const [filterVisited, setFilterVisited] = useState<"all" | "visited" | "not-visited">("all");
+  const [viewMode, setViewMode] = useState<ViewMode>("grid");
 
   useEffect(() => {
     setUserRatings(loadRatings());
@@ -362,6 +364,23 @@ export default function BallparkRankClient({ ballparks }: { ballparks: Ballpark[
             </button>
           ))}
         </div>
+        {/* View mode toggle */}
+        <div className="flex rounded-md overflow-hidden border border-white/10 ml-auto">
+          <button
+            onClick={() => setViewMode("grid")}
+            className={`px-3 py-2 text-xs font-medium transition ${viewMode === "grid" ? "bg-red-600/30 text-red-300" : "bg-white/5 text-gray-400 hover:bg-white/10"}`}
+            title="Card grid view"
+          >
+            ⊞ Grid
+          </button>
+          <button
+            onClick={() => setViewMode("table")}
+            className={`px-3 py-2 text-xs font-medium transition ${viewMode === "table" ? "bg-red-600/30 text-red-300" : "bg-white/5 text-gray-400 hover:bg-white/10"}`}
+            title="Table view"
+          >
+            ≡ Table
+          </button>
+        </div>
       </div>
 
       {/* Tier legend */}
@@ -376,60 +395,125 @@ export default function BallparkRankClient({ ballparks }: { ballparks: Ballpark[
         })}
       </div>
 
-      {/* Park grid */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {filtered.map((park, idx) => {
-          const tier = getTier(park.userScore);
-          const isVisited = park.visited;
-          const pfClass = park.parkFactors.homeRuns > 105 ? "text-red-400" :
-            park.parkFactors.homeRuns < 95 ? "text-blue-400" : "text-gray-400";
+      {/* Park grid view */}
+      {viewMode === "grid" && (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {filtered.map((park, idx) => {
+            const tier = getTier(park.userScore);
+            const isVisited = park.visited;
+            const pfClass = park.parkFactors.homeRuns > 105 ? "text-red-400" :
+              park.parkFactors.homeRuns < 95 ? "text-blue-400" : "text-gray-400";
 
-          return (
-            <button
-              key={park.id}
-              onClick={() => setSelectedPark(ballparks.find((b) => b.id === park.id) ?? null)}
-              className="rounded-xl border border-white/10 bg-card text-left overflow-hidden hover:border-red-600/40 transition group"
-            >
-              {/* Park image */}
-              <div className="relative h-32 bg-white/5 overflow-hidden">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={park.imageUrl}
-                  alt={park.name}
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                  onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
-                <div className="absolute top-2 left-2">
-                  <span className="text-sm font-bold text-white/60">#{idx + 1}</span>
-                </div>
-                <div className="absolute top-2 right-2">
-                  {isVisited && <span className="text-xs bg-green-600/40 text-green-300 px-1.5 py-0.5 rounded">✓</span>}
-                </div>
-                <div className="absolute bottom-2 left-2 right-2 flex items-end justify-between">
-                  <Badge className={`text-xs border ${tier.color}`}>{tier.label}</Badge>
-                  <span className="text-xl font-black text-white">{park.userScore.toFixed(2)}</span>
-                </div>
-              </div>
-
-              {/* Park info */}
-              <div className="p-3">
-                <div className="flex items-center gap-2 mb-1">
+            return (
+              <button
+                key={park.id}
+                onClick={() => setSelectedPark(ballparks.find((b) => b.id === park.id) ?? null)}
+                className="rounded-xl border border-white/10 bg-card text-left overflow-hidden hover:border-red-600/40 transition group"
+              >
+                <div className="relative h-32 bg-white/5 overflow-hidden">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={getTeamLogoUrl(park.teamId)} alt="" width={20} height={20} className="object-contain" />
-                  <div className="font-bold text-white text-sm">{park.name}</div>
+                  <img
+                    src={park.imageUrl}
+                    alt={park.name}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
+                  <div className="absolute top-2 left-2">
+                    <span className="text-sm font-bold text-white/60">#{idx + 1}</span>
+                  </div>
+                  <div className="absolute top-2 right-2">
+                    {isVisited && <span className="text-xs bg-green-600/40 text-green-300 px-1.5 py-0.5 rounded">✓</span>}
+                  </div>
+                  <div className="absolute bottom-2 left-2 right-2 flex items-end justify-between">
+                    <Badge className={`text-xs border ${tier.color}`}>{tier.label}</Badge>
+                    <span className="text-xl font-black text-white">{park.userScore.toFixed(2)}</span>
+                  </div>
                 </div>
-                <p className="text-xs text-gray-500 mb-2">{park.city}, {park.state} · {park.opened}</p>
-                <div className="flex gap-3 text-xs">
-                  <span className="text-gray-500">Cap: <span className="text-gray-300">{(park.capacity / 1000).toFixed(0)}k</span></span>
-                  <span className="text-gray-500">HR PF: <span className={pfClass}>{park.parkFactors.homeRuns}</span></span>
-                  <span className="text-gray-500">Roof: <span className="text-gray-300">{park.roof}</span></span>
+                <div className="p-3">
+                  <div className="flex items-center gap-2 mb-1">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={getTeamLogoUrl(park.teamId)} alt="" width={20} height={20} className="object-contain" />
+                    <div className="font-bold text-white text-sm">{park.name}</div>
+                  </div>
+                  <p className="text-xs text-gray-500 mb-2">{park.city}, {park.state} · {park.opened}</p>
+                  <div className="flex gap-3 text-xs">
+                    <span className="text-gray-500">Cap: <span className="text-gray-300">{(park.capacity / 1000).toFixed(0)}k</span></span>
+                    <span className="text-gray-500">HR PF: <span className={pfClass}>{park.parkFactors.homeRuns}</span></span>
+                    <span className="text-gray-500">Roof: <span className="text-gray-300">{park.roof}</span></span>
+                  </div>
                 </div>
-              </div>
-            </button>
-          );
-        })}
-      </div>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Park table view */}
+      {viewMode === "table" && (
+        <div className="overflow-x-auto rounded-xl border border-white/10">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-white/10 bg-white/5 text-xs text-gray-400 uppercase">
+                <th className="text-left px-4 py-3 w-10">#</th>
+                <th className="text-left px-4 py-3">Park</th>
+                <th className="text-left px-4 py-3 hidden md:table-cell">City</th>
+                <th className="text-center px-3 py-3">Tier</th>
+                <th className="text-right px-4 py-3">Score</th>
+                <th className="text-right px-3 py-3 hidden lg:table-cell">Loc</th>
+                <th className="text-right px-3 py-3 hidden lg:table-cell">Field</th>
+                <th className="text-right px-3 py-3 hidden lg:table-cell">Struct</th>
+                <th className="text-right px-3 py-3 hidden lg:table-cell">Atmo</th>
+                <th className="text-right px-3 py-3 hidden lg:table-cell">Hist</th>
+                <th className="text-right px-3 py-3 hidden xl:table-cell">Food</th>
+                <th className="text-right px-3 py-3 hidden lg:table-cell">Exp</th>
+                <th className="text-right px-4 py-3 hidden md:table-cell">HR PF</th>
+                <th className="text-center px-3 py-3 hidden sm:table-cell">✓</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((park, idx) => {
+                const tier = getTier(park.userScore);
+                const scores = userRatings[park.id] ?? { ...park.defaultScores, visited: false };
+                const pfClass = park.parkFactors.homeRuns > 105 ? "text-red-400" :
+                  park.parkFactors.homeRuns < 95 ? "text-blue-400" : "text-gray-400";
+                return (
+                  <tr
+                    key={park.id}
+                    onClick={() => setSelectedPark(ballparks.find((b) => b.id === park.id) ?? null)}
+                    className="border-b border-white/5 hover:bg-white/5 cursor-pointer transition-colors"
+                  >
+                    <td className="px-4 py-3 text-gray-500 font-bold">{idx + 1}</td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={getTeamLogoUrl(park.teamId)} alt="" width={18} height={18} className="object-contain flex-shrink-0" />
+                        <span className="font-semibold text-white">{park.name}</span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-gray-400 hidden md:table-cell">{park.city}</td>
+                    <td className="px-3 py-3 text-center">
+                      <Badge className={`text-xs border ${tier.color} whitespace-nowrap`}>{tier.label}</Badge>
+                    </td>
+                    <td className="px-4 py-3 text-right font-black text-white">{park.userScore.toFixed(2)}</td>
+                    <td className="px-3 py-3 text-right text-gray-300 hidden lg:table-cell">{scores.location.toFixed(1)}</td>
+                    <td className="px-3 py-3 text-right text-gray-300 hidden lg:table-cell">{scores.fieldDynamics.toFixed(1)}</td>
+                    <td className="px-3 py-3 text-right text-gray-300 hidden lg:table-cell">{scores.parkStructure.toFixed(1)}</td>
+                    <td className="px-3 py-3 text-right text-gray-300 hidden lg:table-cell">{scores.atmosphere.toFixed(1)}</td>
+                    <td className="px-3 py-3 text-right text-gray-300 hidden lg:table-cell">{scores.historicIntegration.toFixed(1)}</td>
+                    <td className="px-3 py-3 text-right text-gray-300 hidden xl:table-cell">{scores.foodMerch.toFixed(1)}</td>
+                    <td className="px-3 py-3 text-right text-gray-300 hidden lg:table-cell">{scores.overallExperience.toFixed(1)}</td>
+                    <td className={`px-4 py-3 text-right hidden md:table-cell ${pfClass}`}>{park.parkFactors.homeRuns}</td>
+                    <td className="px-3 py-3 text-center hidden sm:table-cell">
+                      {park.visited ? <span className="text-green-400">✓</span> : <span className="text-gray-600">—</span>}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       <BallparkDetailModal
         park={selectedPark}
