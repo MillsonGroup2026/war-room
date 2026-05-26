@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { MLBTeam, getTeamLogoUrl, getPlayerHeadshotUrl } from "@/data/teams";
+import { getTeamContracts, estimateTeamPayroll, fmtSalary, LUXURY_TAX_THRESHOLD, CONTRACT_STATUS_COLOR } from "@/data/mlb-contracts";
 
 interface RosterPlayer {
   person: { id: number; fullName: string };
@@ -481,28 +482,29 @@ export default function TeamWarRoomClient({ teams }: { teams: MLBTeam[] }) {
   const pitchers = roster.filter((p) => p.position.type === "Pitcher");
   const hitters = roster.filter((p) => p.position.type !== "Pitcher");
 
-  // Batch-fetch stats for table view
+  // Batch-fetch stats for table view AND GM panel
+  // Fetch top 9 hitters always (for GM overview); rest only when table is active
   const hitterQueries = useQueries({
-    queries: hitters.map((p) => ({
+    queries: hitters.map((p, i) => ({
       queryKey: ["player-table", p.person.id, "hitting"],
       queryFn: async () => {
         const res = await fetch(`/api/mlb/player/${p.person.id}?group=hitting`);
         return res.json();
       },
       staleTime: 1800000,
-      enabled: viewMode === "table" && hitters.length > 0,
+      enabled: (viewMode === "table" || i < 9) && hitters.length > 0,
     })),
   });
 
   const pitcherQueries = useQueries({
-    queries: pitchers.map((p) => ({
+    queries: pitchers.map((p, i) => ({
       queryKey: ["player-table", p.person.id, "pitching"],
       queryFn: async () => {
         const res = await fetch(`/api/mlb/player/${p.person.id}?group=pitching`);
         return res.json();
       },
       staleTime: 1800000,
-      enabled: viewMode === "table" && pitchers.length > 0,
+      enabled: (viewMode === "table" || i < 5) && pitchers.length > 0,
     })),
   });
 
@@ -568,6 +570,15 @@ export default function TeamWarRoomClient({ teams }: { teams: MLBTeam[] }) {
     { col: "triples", label: "3B" }, { col: "tb", label: "TB" }, { col: "bb", label: "BB" },
     { col: "k", label: "K" }, { col: "babip", label: "BABIP" }, { col: "gidp", label: "GIDP" },
   ];
+
+  // Build salary lookup for current team
+  const teamContracts = getTeamContracts(selectedTeamId);
+  function getPlayerSalary(name: string): { salary: number; yearsLeft: number; type: string } | null {
+    const c = teamContracts.find((tc) =>
+      tc.name.toLowerCase().split(" ").some((part) => name.toLowerCase().includes(part))
+    );
+    return c ? { salary: c.salary, yearsLeft: c.yearsLeft, type: c.contractType } : null;
+  }
   const PITCHER_COLS = [
     { col: "g", label: "G" }, { col: "gs", label: "GS" }, { col: "ip", label: "IP" },
     { col: "era", label: "ERA" }, { col: "whip", label: "WHIP" }, { col: "w", label: "W" },
@@ -622,22 +633,8 @@ export default function TeamWarRoomClient({ teams }: { teams: MLBTeam[] }) {
         </div>
       </div>
 
-      {/* Team header */}
-      {team && (
-        <div className="rounded-xl border border-white/10 p-5 mb-6 flex items-center gap-5"
-          style={{ background: `linear-gradient(135deg, ${team.primaryColor}30, transparent)` }}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={getTeamLogoUrl(team.id)} alt={team.name} width={72} height={72} className="object-contain" />
-          <div>
-            <h2 className="text-2xl font-black text-white">{team.name}</h2>
-            <p className="text-gray-400 text-sm">{team.division} · {team.league}</p>
-            <div className="flex gap-2 mt-2">
-              <Badge className="text-xs" style={{ background: team.primaryColor + "80", color: "white", border: "none" }}>{pitchers.length} Pitchers</Badge>
-              <Badge className="text-xs" style={{ background: team.secondaryColor + "80", color: "white", border: "none" }}>{hitters.length} Position Players</Badge>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* ── GM Overview Panel ──────────────────────────────────────────────── */}
+      {team && <GMOverviewPanel team={team} teamId={selectedTeamId} hitters={hitters} pitchers={pitchers} hitterStatsMap={hitterStatsMap} pitcherStatsMap={pitcherStatsMap} />}
 
       {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-3 mb-4">
@@ -684,6 +681,8 @@ export default function TeamWarRoomClient({ teams }: { teams: MLBTeam[] }) {
                         <tr className="border-b border-white/10 bg-white/5">
                           <th className="text-left px-3 py-2 text-gray-400 font-semibold sticky left-0 bg-[#1a2a1a] z-10 min-w-[160px]">Player</th>
                           <th className="text-left px-2 py-2 text-gray-400">Pos</th>
+                          <th className="px-2 py-2 text-gray-400 text-xs uppercase whitespace-nowrap text-right">💰 Salary</th>
+                          <th className="px-2 py-2 text-gray-400 text-xs uppercase whitespace-nowrap text-right">Yrs</th>
                           {HITTER_COLS.map((c) => (
                             <SortTh key={c.col} col={c.col} label={c.label} sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />
                           ))}
@@ -709,6 +708,20 @@ export default function TeamWarRoomClient({ teams }: { teams: MLBTeam[] }) {
                                   {player.position.abbreviation}
                                 </Badge>
                               </td>
+                              {(() => {
+                                const ct = getPlayerSalary(player.person.fullName);
+                                return ct ? (
+                                  <>
+                                    <td className={`px-2 py-2 text-right text-xs font-mono font-bold ${CONTRACT_STATUS_COLOR[ct.type as keyof typeof CONTRACT_STATUS_COLOR] ?? "text-gray-300"}`}>{fmtSalary(ct.salary)}</td>
+                                    <td className="px-2 py-2 text-right text-xs text-gray-400">{ct.yearsLeft}yr</td>
+                                  </>
+                                ) : (
+                                  <>
+                                    <td className="px-2 py-2 text-right text-xs text-gray-600">—</td>
+                                    <td className="px-2 py-2 text-right text-xs text-gray-600">—</td>
+                                  </>
+                                );
+                              })()}
                               {HITTER_COLS.map((c) => {
                                 const raw = hitterVal(s, c.col);
                                 const display = fmtStat(typeof raw === "number" ? raw : undefined, c.col);
@@ -746,6 +759,8 @@ export default function TeamWarRoomClient({ teams }: { teams: MLBTeam[] }) {
                         <tr className="border-b border-white/10 bg-white/5">
                           <th className="text-left px-3 py-2 text-gray-400 font-semibold sticky left-0 bg-[#1a2a1a] z-10 min-w-[160px]">Player</th>
                           <th className="text-left px-2 py-2 text-gray-400">Pos</th>
+                          <th className="px-2 py-2 text-gray-400 text-xs uppercase whitespace-nowrap text-right">💰 Salary</th>
+                          <th className="px-2 py-2 text-gray-400 text-xs uppercase whitespace-nowrap text-right">Yrs</th>
                           {PITCHER_COLS.map((c) => (
                             <SortTh key={c.col} col={c.col} label={c.label} sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />
                           ))}
@@ -771,6 +786,20 @@ export default function TeamWarRoomClient({ teams }: { teams: MLBTeam[] }) {
                                   {player.position.abbreviation}
                                 </Badge>
                               </td>
+                              {(() => {
+                                const ct = getPlayerSalary(player.person.fullName);
+                                return ct ? (
+                                  <>
+                                    <td className={`px-2 py-2 text-right text-xs font-mono font-bold ${CONTRACT_STATUS_COLOR[ct.type as keyof typeof CONTRACT_STATUS_COLOR] ?? "text-gray-300"}`}>{fmtSalary(ct.salary)}</td>
+                                    <td className="px-2 py-2 text-right text-xs text-gray-400">{ct.yearsLeft}yr</td>
+                                  </>
+                                ) : (
+                                  <>
+                                    <td className="px-2 py-2 text-right text-xs text-gray-600">—</td>
+                                    <td className="px-2 py-2 text-right text-xs text-gray-600">—</td>
+                                  </>
+                                );
+                              })()}
                               {PITCHER_COLS.map((c) => {
                                 const raw = pitcherVal(s, c.col);
                                 const display = fmtStat(isFinite(raw) ? raw : undefined, c.col);
@@ -795,6 +824,242 @@ export default function TeamWarRoomClient({ teams }: { teams: MLBTeam[] }) {
       </Tabs>
 
       <PlayerModal player={selectedPlayer} onClose={() => setSelectedPlayer(null)} />
+    </div>
+  );
+}
+
+// ─── GM Overview Panel ────────────────────────────────────────────────────────
+function GMOverviewPanel({
+  team, teamId, hitters, pitchers, hitterStatsMap, pitcherStatsMap,
+}: {
+  team: MLBTeam;
+  teamId: number;
+  hitters: RosterPlayer[];
+  pitchers: RosterPlayer[];
+  hitterStatsMap: Record<number, HittingStat | undefined>;
+  pitcherStatsMap: Record<number, PitchingStat | undefined>;
+}) {
+  const contracts = getTeamContracts(teamId);
+  const estPayroll = estimateTeamPayroll(teamId);
+  const payrollPct = Math.min(100, (estPayroll / LUXURY_TAX_THRESHOLD) * 100);
+  const overLux = estPayroll > LUXURY_TAX_THRESHOLD;
+
+  // Team batting averages
+  const hitterStats = hitters
+    .map((h) => hitterStatsMap[h.person.id])
+    .filter(Boolean) as HittingStat[];
+
+  const avgOPS = hitterStats.length > 0
+    ? hitterStats.reduce((s, h) => s + parseFloat(h.ops ?? "0"), 0) / hitterStats.length : 0;
+  const avgAVG = hitterStats.length > 0
+    ? hitterStats.reduce((s, h) => s + parseFloat(h.avg ?? "0"), 0) / hitterStats.length : 0;
+  const totalHR = hitterStats.reduce((s, h) => s + (h.homeRuns ?? 0), 0);
+  const totalRBI = hitterStats.reduce((s, h) => s + (h.rbi ?? 0), 0);
+  const totalSB = hitterStats.reduce((s, h) => s + (h.stolenBases ?? 0), 0);
+
+  const pitcherStats = pitchers
+    .map((p) => pitcherStatsMap[p.person.id])
+    .filter(Boolean) as PitchingStat[];
+
+  const starters = pitcherStats.filter((p) => (p.gamesStarted ?? 0) > 3);
+  const relievers = pitcherStats.filter((p) => (p.gamesStarted ?? 0) <= 3 && (p.gamesPlayed ?? 0) > 0);
+  const avgStarterERA = starters.length > 0
+    ? starters.reduce((s, p) => s + parseFloat(p.era ?? "9"), 0) / starters.length : null;
+  const avgBullpenERA = relievers.length > 0
+    ? relievers.reduce((s, p) => s + parseFloat(p.era ?? "9"), 0) / relievers.length : null;
+
+  // Identify strengths and weaknesses
+  const strengths: string[] = [];
+  const weaknesses: string[] = [];
+
+  if (avgOPS > 0.780) strengths.push("Elite offensive production (OPS)");
+  else if (avgOPS < 0.700) weaknesses.push("Below-average offense — low team OPS");
+  if (totalHR > 0) {
+    if (totalHR / Math.max(1, hitters.length) > 3.5) strengths.push("Power-hitting lineup");
+    else if (totalHR / Math.max(1, hitters.length) < 1.5) weaknesses.push("Lack of power (low HR rate)");
+  }
+  if (totalSB > 0) {
+    if (totalSB / Math.max(1, hitters.length) > 3) strengths.push("Speed & base-stealing threat");
+    else if (totalSB / Math.max(1, hitters.length) < 1) weaknesses.push("No speed dimension on bases");
+  }
+  if (avgStarterERA !== null) {
+    if (avgStarterERA < 3.50) strengths.push("Dominant starting rotation");
+    else if (avgStarterERA > 4.80) weaknesses.push("Starting rotation struggling (ERA)");
+  }
+  if (avgBullpenERA !== null) {
+    if (avgBullpenERA < 3.50) strengths.push("Strong bullpen");
+    else if (avgBullpenERA > 4.80) weaknesses.push("Bullpen vulnerability");
+  }
+  if (contracts.length > 0) {
+    const expiring = contracts.filter((c) => c.yearsLeft === 1).length;
+    if (expiring > 3) weaknesses.push(`${expiring} key players entering free agency after this season`);
+    if (overLux) weaknesses.push(`Over luxury tax threshold ($${estPayroll.toFixed(0)}M vs $${LUXURY_TAX_THRESHOLD}M)`);
+    else if (estPayroll < LUXURY_TAX_THRESHOLD * 0.6) strengths.push(`Payroll flexibility ($${estPayroll.toFixed(0)}M est.)`);
+  }
+  if (strengths.length === 0) strengths.push("Evaluating team — more data needed");
+  if (weaknesses.length === 0) weaknesses.push("No obvious weaknesses identified");
+
+  // Trade targets (players on low salary with high impact or position needs)
+  const tradeTargets: Array<{ pos: string; need: string; why: string }> = [];
+  const posGroups: Record<string, HittingStat[]> = {};
+  hitters.forEach((h) => {
+    const pos = h.position.abbreviation;
+    if (!posGroups[pos]) posGroups[pos] = [];
+    const st = hitterStatsMap[h.person.id];
+    if (st) posGroups[pos].push(st);
+  });
+  for (const [pos, stats] of Object.entries(posGroups)) {
+    const avgPos = stats.reduce((s, h) => s + parseFloat(h.ops ?? "0"), 0) / stats.length;
+    if (avgPos < 0.700 && stats.length <= 2) {
+      tradeTargets.push({ pos, need: "UPGRADE", why: `${pos} averaging ${avgPos.toFixed(3)} OPS — below league avg` });
+    }
+  }
+  if (avgStarterERA !== null && avgStarterERA > 4.50) {
+    tradeTargets.push({ pos: "SP", need: "URGENT", why: `Rotation ERA ${avgStarterERA.toFixed(2)} — needs top-of-rotation arm` });
+  }
+  if (avgBullpenERA !== null && avgBullpenERA > 5.00) {
+    tradeTargets.push({ pos: "RP", need: "UPGRADE", why: `Bullpen ERA ${avgBullpenERA.toFixed(2)} — reliability issue in high leverage` });
+  }
+  if (tradeTargets.length === 0) tradeTargets.push({ pos: "—", need: "HOLD", why: "No glaring positional needs identified with current data" });
+
+  return (
+    <div className="space-y-4 mb-6">
+      {/* Team Banner */}
+      <div className="rounded-xl border border-white/10 p-5 flex items-center gap-5"
+        style={{ background: `linear-gradient(135deg, ${team.primaryColor}30, transparent)` }}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={getTeamLogoUrl(team.id)} alt={team.name} width={72} height={72} className="object-contain" />
+        <div className="flex-1">
+          <h2 className="text-2xl font-black text-white">{team.name}</h2>
+          <p className="text-gray-400 text-sm">{team.division} · {team.league}</p>
+          <div className="flex gap-2 mt-2 flex-wrap">
+            <Badge className="text-xs" style={{ background: team.primaryColor + "80", color: "white", border: "none" }}>{pitchers.length} Pitchers</Badge>
+            <Badge className="text-xs" style={{ background: team.secondaryColor + "80", color: "white", border: "none" }}>{hitters.length} Position Players</Badge>
+            {contracts.length > 0 && (
+              <Badge className={`text-xs border ${overLux ? "bg-red-500/20 text-red-300 border-red-500/30" : "bg-green-500/20 text-green-300 border-green-500/30"}`}>
+                Est. Payroll: ${estPayroll.toFixed(0)}M
+              </Badge>
+            )}
+          </div>
+        </div>
+        {/* Quick stats */}
+        {hitterStats.length > 0 && (
+          <div className="hidden lg:flex gap-4">
+            <div className="text-center">
+              <div className="text-xl font-black text-white">{avgOPS.toFixed(3)}</div>
+              <div className="text-xs text-gray-500">Avg OPS</div>
+            </div>
+            <div className="text-center">
+              <div className="text-xl font-black text-white">{totalHR}</div>
+              <div className="text-xs text-gray-500">Team HR</div>
+            </div>
+            {avgStarterERA !== null && (
+              <div className="text-center">
+                <div className={`text-xl font-black ${avgStarterERA < 3.5 ? "text-green-400" : avgStarterERA < 4.5 ? "text-yellow-400" : "text-red-400"}`}>{avgStarterERA.toFixed(2)}</div>
+                <div className="text-xs text-gray-500">SP ERA</div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Payroll Bar */}
+      {contracts.length > 0 && (
+        <div className="rounded-xl border border-white/10 bg-white/3 p-4">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-sm font-semibold text-gray-300">💰 Payroll Status</span>
+            <span className={`text-sm font-bold ${overLux ? "text-red-400" : "text-green-400"}`}>
+              ${estPayroll.toFixed(0)}M / ${LUXURY_TAX_THRESHOLD}M CBT
+            </span>
+          </div>
+          <div className="h-2.5 rounded-full bg-white/10 overflow-hidden">
+            <div
+              className={`h-full rounded-full transition-all ${overLux ? "bg-red-500" : payrollPct > 80 ? "bg-yellow-500" : "bg-green-500"}`}
+              style={{ width: `${Math.min(100, payrollPct)}%` }}
+            />
+          </div>
+          <div className="flex items-center gap-3 mt-2 flex-wrap">
+            {contracts.slice(0, 5).map((c) => (
+              <div key={c.playerId} className="text-xs text-gray-400">
+                <span className="text-white font-medium">{c.name.split(" ").pop()}</span>{" "}
+                <span className={CONTRACT_STATUS_COLOR[c.contractType]}>{fmtSalary(c.salary)}</span>
+                <span className="text-gray-600"> · {c.yearsLeft}yr</span>
+              </div>
+            ))}
+            {contracts.length > 5 && <span className="text-xs text-gray-600">+{contracts.length - 5} more</span>}
+          </div>
+        </div>
+      )}
+
+      {/* Strengths / Weaknesses / Trade Targets */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* Strengths */}
+        <div className="rounded-xl border border-green-500/20 bg-green-500/5 p-4">
+          <h3 className="text-sm font-bold text-green-400 mb-3">✅ Strengths</h3>
+          <ul className="space-y-1.5">
+            {strengths.map((s, i) => (
+              <li key={i} className="text-xs text-gray-300 flex items-start gap-1.5">
+                <span className="text-green-400 mt-0.5">▸</span> {s}
+              </li>
+            ))}
+          </ul>
+        </div>
+        {/* Weaknesses */}
+        <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-4">
+          <h3 className="text-sm font-bold text-red-400 mb-3">⚠️ Weaknesses / Needs</h3>
+          <ul className="space-y-1.5">
+            {weaknesses.map((w, i) => (
+              <li key={i} className="text-xs text-gray-300 flex items-start gap-1.5">
+                <span className="text-red-400 mt-0.5">▸</span> {w}
+              </li>
+            ))}
+          </ul>
+        </div>
+        {/* Trade Targets */}
+        <div className="rounded-xl border border-yellow-500/20 bg-yellow-500/5 p-4">
+          <h3 className="text-sm font-bold text-yellow-400 mb-3">🎯 Trade Targets</h3>
+          <ul className="space-y-2">
+            {tradeTargets.map((t, i) => (
+              <li key={i} className="text-xs">
+                <div className="flex items-center gap-1.5 mb-0.5">
+                  <Badge className={`text-xs px-1.5 py-0 border ${t.need === "URGENT" ? "bg-red-500/20 text-red-300 border-red-500/30" : "bg-yellow-500/20 text-yellow-300 border-yellow-500/30"}`}>
+                    {t.pos} · {t.need}
+                  </Badge>
+                </div>
+                <span className="text-gray-400">{t.why}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+
+      {/* GM Narrative */}
+      <div className="rounded-xl border border-white/10 bg-white/3 p-4">
+        <h3 className="text-sm font-bold text-gray-300 mb-2">📋 GM Assessment</h3>
+        <p className="text-xs text-gray-400 leading-relaxed">
+          {team.name} currently carry an estimated payroll of <span className="text-white font-semibold">${estPayroll.toFixed(0)}M</span>,{" "}
+          {overLux ? `exceeding the $${LUXURY_TAX_THRESHOLD}M luxury tax threshold and triggering penalty taxes.` : `comfortably under the $${LUXURY_TAX_THRESHOLD}M luxury tax threshold with flexibility to add.`}{" "}
+          {hitterStats.length > 0 && (
+            <>
+              The lineup is producing at a <span className={`font-semibold ${avgOPS > 0.780 ? "text-green-400" : avgOPS > 0.730 ? "text-yellow-400" : "text-red-400"}`}>{avgOPS > 0.780 ? "high" : avgOPS > 0.730 ? "league-average" : "below-average"}</span>{" "}
+              clip with a team OPS of <span className="text-white font-semibold">{avgOPS.toFixed(3)}</span> and {totalHR} combined home runs.{" "}
+            </>
+          )}
+          {avgStarterERA !== null && (
+            <>
+              The starting rotation carries a <span className={`font-semibold ${avgStarterERA < 3.5 ? "text-green-400" : avgStarterERA < 4.5 ? "text-yellow-400" : "text-red-400"}`}>{avgStarterERA.toFixed(2)} ERA</span>,{" "}
+              which is {avgStarterERA < 3.5 ? "elite by any measure" : avgStarterERA < 4.0 ? "solid and competitive" : avgStarterERA < 4.80 ? "league average but improvable" : "a genuine concern that needs addressing"}.{" "}
+            </>
+          )}
+          {contracts.length > 0 && contracts.filter((c) => c.yearsLeft === 1).length > 0 && (
+            <>
+              With {contracts.filter((c) => c.yearsLeft === 1).length} key contract{contracts.filter((c) => c.yearsLeft === 1).length > 1 ? "s" : ""} expiring this winter,{" "}
+              roster continuity decisions will be critical heading into the offseason.{" "}
+            </>
+          )}
+          Priority moves: {tradeTargets.filter((t) => t.need !== "HOLD").map((t) => t.pos).join(", ") || "maintain current roster"}.
+        </p>
+      </div>
     </div>
   );
 }

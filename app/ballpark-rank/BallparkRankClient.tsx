@@ -16,6 +16,12 @@ import {
   getTier,
 } from "@/data/ballparks";
 import { getTeamLogoUrl } from "@/data/teams";
+import {
+  NOAHS_MLB_RATINGS,
+  NOAHS_HISTORICAL_PARKS,
+  HistoricalPark,
+  NoahRating,
+} from "@/data/noahs-ratings";
 
 const STORAGE_KEY = "war-room-ballpark-ratings";
 
@@ -285,13 +291,45 @@ export default function BallparkRankClient({ ballparks }: { ballparks: Ballpark[
   const [search, setSearch] = useState("");
   const [filterVisited, setFilterVisited] = useState<"all" | "visited" | "not-visited">("all");
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
+  const [showHistorical, setShowHistorical] = useState(true);
+  const [historicalRatings, setHistoricalRatings] = useState<Record<string, NoahRating>>({});
 
-  useEffect(() => { setUserRatings(loadRatings()); }, []);
+  useEffect(() => {
+    const saved = loadRatings();
+    // First-time load: auto-seed with Noah's personal ratings from his spreadsheet
+    if (Object.keys(saved).length === 0) {
+      saveRatings(NOAHS_MLB_RATINGS);
+      setUserRatings(NOAHS_MLB_RATINGS);
+    } else {
+      setUserRatings(saved);
+    }
+  }, []);
+
+  // Load historical ratings from localStorage or seed from Noah's defaults
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("war-room-historical-ratings");
+      if (raw) {
+        setHistoricalRatings(JSON.parse(raw));
+      } else {
+        const defaults = Object.fromEntries(
+          NOAHS_HISTORICAL_PARKS.map((p) => [p.id, p.noahRating])
+        );
+        localStorage.setItem("war-room-historical-ratings", JSON.stringify(defaults));
+        setHistoricalRatings(defaults);
+      }
+    } catch { /* ignore */ }
+  }, []);
 
   const handleRatingChange = (id: string, scores: BallparkCriteria & { visited: boolean }) => {
     const updated = { ...userRatings, [id]: scores };
     setUserRatings(updated);
     saveRatings(updated);
+  };
+
+  const handleResetToNoah = () => {
+    saveRatings(NOAHS_MLB_RATINGS);
+    setUserRatings({ ...NOAHS_MLB_RATINGS });
   };
 
   function handleSort(col: SortMode) {
@@ -378,9 +416,16 @@ export default function BallparkRankClient({ ballparks }: { ballparks: Ballpark[
   return (
     <div className="mx-auto max-w-7xl px-4 py-8">
       {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-3xl font-black">🎯 Ballpark Rank</h1>
-        <p className="text-gray-400 text-sm mt-1">Rate all 30 MLB stadiums · Personal rankings saved locally</p>
+      <div className="mb-6 flex items-start justify-between flex-wrap gap-3">
+        <div>
+          <h1 className="text-3xl font-black">🎯 Ballpark Rank</h1>
+          <p className="text-gray-400 text-sm mt-1">Rate all 30 MLB stadiums · Personal rankings saved locally</p>
+        </div>
+        <button
+          onClick={handleResetToNoah}
+          className="flex items-center gap-2 px-3 py-2 text-xs rounded-lg border border-red-600/40 bg-red-600/10 text-red-300 hover:bg-red-600/20 transition">
+          📥 Noah&apos;s Ratings
+        </button>
       </div>
 
       {/* ── Scoring System Overview ─────────────────────────────────────────── */}
@@ -633,11 +678,116 @@ export default function BallparkRankClient({ ballparks }: { ballparks: Ballpark[
         </div>
       )}
 
+      {/* ── Noah's Historical & Special Parks ─────────────────────────────── */}
+      <div className="mt-10">
+        <button
+          onClick={() => setShowHistorical((v) => !v)}
+          className="flex items-center gap-2 w-full text-left mb-4 group">
+          <h2 className="text-xl font-black text-gray-300 group-hover:text-white transition">
+            🏟️ Noah&apos;s Historical &amp; Special Parks
+          </h2>
+          <span className="text-gray-500 text-sm">{showHistorical ? "▲ collapse" : "▼ expand"}</span>
+        </button>
+        {showHistorical && (
+          <div className="space-y-6">
+            {/* Former MLB Parks */}
+            <HistoricalParksSection
+              title="🏚️ Former MLB Parks"
+              parks={NOAHS_HISTORICAL_PARKS.filter((p) => p.category === "historical")}
+              ratings={historicalRatings}
+            />
+            {/* Spring Training */}
+            <HistoricalParksSection
+              title="🌴 Spring Training"
+              parks={NOAHS_HISTORICAL_PARKS.filter((p) => p.category === "spring-training")}
+              ratings={historicalRatings}
+            />
+            {/* Minor League */}
+            <HistoricalParksSection
+              title="⚾ Minor League Stops"
+              parks={NOAHS_HISTORICAL_PARKS.filter((p) => p.category === "minors")}
+              ratings={historicalRatings}
+            />
+          </div>
+        )}
+      </div>
+
       <BallparkDetailModal
         park={selectedPark}
         userRating={selectedPark ? userRatings[selectedPark.id] : undefined}
         onRatingChange={handleRatingChange}
         onClose={() => setSelectedPark(null)} />
+    </div>
+  );
+}
+
+// ─── Historical Parks display component ───────────────────────────────────────
+function HistoricalParksSection({
+  title, parks, ratings,
+}: {
+  title: string;
+  parks: HistoricalPark[];
+  ratings: Record<string, NoahRating>;
+}) {
+  if (parks.length === 0) return null;
+  return (
+    <div>
+      <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-3">{title}</h3>
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {parks.map((park) => {
+          const rating = ratings[park.id] ?? park.noahRating;
+          const total = calculateTotalScore(rating);
+          const tier = getTier(total);
+          const catLabel = park.category === "historical"
+            ? `Closed ${park.closed}`
+            : park.category === "spring-training"
+              ? "Spring Training"
+              : "Minor League";
+          return (
+            <div key={park.id}
+              className="rounded-xl border border-white/10 bg-card overflow-hidden">
+              <div className="relative h-28 bg-white/5 overflow-hidden">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={park.imageUrl} alt={park.name}
+                  className="w-full h-full object-cover"
+                  onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
+                <div className="absolute top-2 left-2">
+                  <span className="text-xs bg-white/20 backdrop-blur-sm text-white px-1.5 py-0.5 rounded">{catLabel}</span>
+                </div>
+                <div className="absolute top-2 right-2">
+                  <span className="text-xs bg-green-600/40 text-green-300 px-1.5 py-0.5 rounded">✓ Visited</span>
+                </div>
+                <div className="absolute bottom-2 left-2 right-2 flex items-end justify-between">
+                  <Badge className={`text-xs border ${tier.color}`}>{tier.label}</Badge>
+                  <span className="text-xl font-black text-white">{total.toFixed(2)}</span>
+                </div>
+              </div>
+              <div className="p-3">
+                <div className="font-bold text-white text-sm mb-0.5">{park.name}</div>
+                <p className="text-xs text-gray-500 mb-2">{park.city}, {park.state} · {park.teamName}</p>
+                {rating.visitNote && (
+                  <p className="text-xs text-red-400/80 mb-2">📅 {rating.visitNote}</p>
+                )}
+                <p className="text-xs text-gray-500 leading-relaxed line-clamp-2">{park.funFact}</p>
+                <div className="mt-2 grid grid-cols-4 gap-1 text-xs">
+                  {[
+                    { l: "Loc", v: rating.location }, { l: "Field", v: rating.fieldDynamics },
+                    { l: "Struct", v: rating.parkStructure }, { l: "Atmo", v: rating.atmosphere },
+                    { l: "Hist", v: rating.historicIntegration }, { l: "Food", v: rating.foodMerch },
+                    { l: "Overall", v: rating.overallExperience }, { l: "TDF", v: rating.tdfBonus },
+                  ].map(({ l, v }) => (
+                    <div key={l} className="text-center bg-white/5 rounded p-1">
+                      <div className={`font-bold ${v >= 8 ? "text-green-400" : v >= 6 ? "text-yellow-400" : v >= 4 ? "text-orange-400" : "text-red-400"}`}>{v.toFixed(1)}</div>
+                      <div className="text-gray-600 text-[10px]">{l}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
